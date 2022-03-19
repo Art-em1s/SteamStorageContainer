@@ -3,18 +3,20 @@ const GlobalOffensive = require('globaloffensive');
 const axios = require('axios');
 const SteamTotp = require('steam-totp');
 
-const username = "USERNAME";
-const password = "PASSWORD";
-const secret = "SECRET";
-const storageUnitID = 17883951268; //this is the asset id for the storage unit you want to add stuff to
+require('dotenv').config(); //update by @antal-k on github
+
+const username = process.env.STEAM_USERNAME;
+const password = process.env.STEAM_PASSWORD;
+const secret = process.env.TOTP_SECRET;
+const storageUnitID = process.env.STORAGE;
 var itemsToStore = [];
 
 
 
-user = new SteamUser();
-csgo = new GlobalOffensive(user);
+const user = new SteamUser();
+const csgo = new GlobalOffensive(user);
 
-loginOptions = {
+const loginOptions = {
     accountName: username,
     password: password,
     twoFactorCode: SteamTotp.generateAuthCode(secret),
@@ -60,11 +62,15 @@ function quit() {
     });
 };
 
-async function getItemsFromInventory(){
+async function getItemsFromInventory() {
     let inventory = await getInventory();
+    if (!inventory) {
+        console.log('Failed to fetch the user inventory.');
+        return;
+    }
     let assets = inventory.assets;
     let descriptions = inventory.descriptions;
-    let cases = descriptions.filter(item => item.type === "Base Grade Container"); //change the string here if you want to add other types
+    let cases = descriptions.filter(item => item.name === process.env.ITEM_NAME);
     let assetids = [];
     if (cases) {
         for (let i in cases) {
@@ -73,15 +79,18 @@ async function getItemsFromInventory(){
             let a = assets.filter(item => item.classid === classid).map(function (value) { return value.assetid; });
             assetids = assetids.concat(a);
         }
-        return assetids;
     }
-    return [];
+    return assetids;
 }
 
-async function getInventory(){
-    const response = await axios.get(`https://steamcommunity.com/inventory/${user.steamID.getSteamID64()}/730/2?l=english&count=5000`);
-    if (response.data && response.data.assets) {
-        return response.data;
+async function getInventory() {
+    try {
+        const response = await axios.get(`https://steamcommunity.com/inventory/${user.steamID.getSteamID64()}/730/2?l=english&count=1000`);
+        if (response.data && response.data.assets) {
+            return response.data;
+        }
+    } catch (e) {
+        return false;
     }
 }
 
@@ -101,5 +110,5 @@ async function insertItems() {
 }
 
 async function sleep(s) {
-    return new Promise(resolve => setTimeout(resolve, s*1000));
+    return new Promise(resolve => setTimeout(resolve, s * 1000));
 }
