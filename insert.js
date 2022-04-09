@@ -8,7 +8,6 @@ require('dotenv').config(); //update by @antal-k on github
 const username = process.env.STEAM_USERNAME;
 const password = process.env.STEAM_PASSWORD;
 const secret = process.env.TOTP_SECRET;
-const storageUnitID = process.env.STORAGE;
 var itemsToStore = [];
 
 
@@ -43,8 +42,22 @@ user.on('loggedOn', async () => {
 csgo.on('connectedToGC', async function () {
     if (csgo.haveGCSession) {
         itemsToStore = await getItemsFromInventory();
-        await insertItems();
-        quit();
+        if (itemsToStore.length > 0) {
+            console.log(`Found ${itemsToStore.length} items to store.`);
+            await insertItems();
+        } else {
+            console.log('No items to store. Waiting for items to be added to inventory...');
+        }
+    }
+});
+
+csgo.on('itemAcquired', async function (item) {
+    itemsToStore = await getItemsFromInventory();
+    if (csgo.haveGCSession) {
+        if (itemsToStore.length > 0) {
+            console.log(`Found ${itemsToStore.length} items to store.`);
+            await insertItems();
+        }
     }
 });
 
@@ -70,7 +83,7 @@ async function getItemsFromInventory() {
     }
     let assets = inventory.assets;
     let descriptions = inventory.descriptions;
-    let cases = descriptions.filter(item => item.name === process.env.ITEM_NAME);
+    let cases = descriptions.filter(item => item.type === "Base Grade Container");
     let assetids = [];
     if (cases) {
         for (let i in cases) {
@@ -96,13 +109,11 @@ async function getInventory() {
 
 async function insertItems() {
     try {
-        console.log(`Starting adding ${itemsToStore.length} items to storage container`);
         for (let item in itemsToStore) {
             csgo.addToCasket(storageUnitID, itemsToStore[item]);
             console.log(`Stored ${itemsToStore[item]} in ${storageUnitID}`)
-            await sleep(0.5);
+            await sleep(0.1);
         }
-        console.log("Completed item move");
         return;
     } catch (e) {
         console.error(e);
